@@ -3,10 +3,6 @@
 from __future__ import unicode_literals
 import scrapy
 
-# from scrapy.selector import HtmlXPathSelector
-from scrapy import Selector
-from scrapy.http import Request
-from Shadow.utils import md5
 from Shadow.items import ProxyItem
 
 
