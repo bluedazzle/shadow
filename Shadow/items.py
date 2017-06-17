@@ -14,3 +14,15 @@ class ProxyItem(scrapy.Item):
     host = scrapy.Field()
     port = scrapy.Field()
     protocol = scrapy.Field()
+
+
+class ZHArticleItem(scrapy.Item):
+    title = scrapy.Field()
+    content = scrapy.Field()
+    summary = scrapy.Field()
+    md5 = scrapy.Field()
+    token = scrapy.Field()
+    cover = scrapy.Field()
+    link = scrapy.Field()
+    create_time = scrapy.Field()
+    modify_time = scrapy.Field()

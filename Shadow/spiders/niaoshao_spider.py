@@ -6,11 +6,12 @@ import scrapy
 from Shadow.items import ProxyItem
 
 
-class KuaiProxySpider(scrapy.Spider):
-    name = 'kuai_spider'
-    host = 'http://www.kuaidaili.com/free/inha/'
-    start_urls = ['http://www.kuaidaili.com/free/inha/1/', 'http://www.kuaidaili.com/free/inha/2/',
-                  'http://www.kuaidaili.com/free/inha/3/']
+class NiaoShaoProxySpider(scrapy.Spider):
+    name = 'niaoshao_spider'
+    host = 'http://www.xicidaili.com/'
+    start_urls = ['http://www.nianshao.me/?stype=1', 'http://www.nianshao.me/?stype=1&page=2',
+                  'http://www.nianshao.me/?stype=1&page=3', 'http://www.nianshao.me/?stype=2',
+                  'http://www.nianshao.me/?stype=2&page=2', 'http://www.nianshao.me/?stype=2&page=3']
 
     custom_settings = {
         'ITEM_PIPELINES': {
@@ -28,5 +29,6 @@ class KuaiProxySpider(scrapy.Spider):
             item = ProxyItem()
             item['host'] = sel.xpath('td[1]/text()').extract()[0].strip()
             item['port'] = sel.xpath('td[2]/text()').extract()[0].strip()
-            item['protocol'] = sel.xpath('td[4]/text()').extract()[0].strip()
+            item['protocol'] = sel.xpath('td[5]/text()').extract()[0].strip()
+            # print(item)
             yield item
