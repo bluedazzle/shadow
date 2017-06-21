@@ -34,8 +34,58 @@ class ZHArticle(Base):
     cover = Column(String)
     link = Column(String)
     token = Column(String)
+    author_id = Column(Integer)
+    belong_id = Column(Integer)
 
 
-engine = create_engine('mysql+pymysql://root:123456qq@localhost:3306/lighthouse?charset=utf8', encoding='utf-8'.encode())
+class ZHColumn(Base):
+    __tablename__ = 'core_zhcolumn'
+
+    id = Column(Integer, primary_key=True)
+    create_time = Column(DateTime)
+    modify_time = Column(DateTime)
+    name = Column(String)
+    link = Column(String)
+    hash = Column(String, unique=True)
+    slug = Column(String, unique=True)
+    description = Column(String, nullable=True)
+    avatar = Column(String)
+    creator_id = Column(Integer, nullable=True)
+
+
+class ZHUser(Base):
+    __tablename__ = 'core_zhuser'
+
+    id = Column(Integer, primary_key=True)
+    zuid = Column(String)
+    create_time = Column(DateTime)
+    modify_time = Column(DateTime)
+    name = Column(String)
+    link = Column(String)
+    hash = Column(String, unique=True)
+    slug = Column(String, unique=True)
+    description = Column(String, nullable=True)
+    headline = Column(String, nullable=True)
+    avatar = Column(String)
+
+
+class Tag(Base):
+    __tablename__ = 'core_tag'
+
+    id = Column(Integer, primary_key=True)
+    create_time = Column(DateTime)
+    modify_time = Column(DateTime)
+    name = Column(String)
+
+
+class ZHArticleTagRef(Base):
+    __tablename__ = 'core_zharticle_tags'
+    id = Column(Integer, primary_key=True)
+    zharticle_id = Column(Integer)
+    tag_id = Column(Integer)
+
+
+engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
+                       encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)

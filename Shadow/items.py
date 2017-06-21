@@ -26,3 +26,41 @@ class ZHArticleItem(scrapy.Item):
     link = scrapy.Field()
     create_time = scrapy.Field()
     modify_time = scrapy.Field()
+
+
+class ZHColumnItem(scrapy.Item):
+    create_time = scrapy.Field()
+    modify_time = scrapy.Field()
+    name = scrapy.Field()
+    link = scrapy.Field()
+    hash = scrapy.Field()
+    slug = scrapy.Field()
+    description = scrapy.Field()
+    avatar = scrapy.Field()
+
+
+class ZHUserItem(scrapy.Item):
+    zuid = scrapy.Field()
+    create_time = scrapy.Field()
+    modify_time = scrapy.Field()
+    name = scrapy.Field()
+    link = scrapy.Field()
+    hash = scrapy.Field()
+    slug = scrapy.Field()
+    description = scrapy.Field()
+    headline = scrapy.Field()
+    avatar = scrapy.Field()
+
+
+class TagItem(scrapy.Item):
+    create_time = scrapy.Field()
+    modify_time = scrapy.Field()
+    name = scrapy.Field()
+
+
+class ZHCombinationItem(scrapy.Item):
+    article = ZHArticleItem()
+    author = ZHUserItem()
+    creator = ZHUserItem()
+    column = ZHColumnItem()
+    tags = []

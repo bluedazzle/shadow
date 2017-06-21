@@ -8,6 +8,9 @@ import random
 
 from scrapy import signals
 
+from Shadow.const import ProtocolChoice
+from Shadow.models import DBSession, Proxy
+
 
 class UserAgentMiddleware(object):
     def __init__(self, agents):
@@ -19,6 +22,27 @@ class UserAgentMiddleware(object):
 
     def process_request(self, request, spider):
         request.headers.setdefault('User-Agent', random.choice(self.agents))
+
+
+class ProxyMiddleware(object):
+    session = None
+    proxies = None
+
+    def get_proxy(self):
+        self.session = DBSession()
+        if not self.proxies:
+            self.proxies = self.session.query(Proxy).all()
+        count = len(self.proxies)
+        index = random.randint(0, count - 1)
+        return self.proxies[index]
+
+    def process_request(self, request, spider):
+        # proxy = self.get_proxy()
+        # if proxy.protocol == ProtocolChoice.HTTP:
+        #     request.meta['proxy'] = "http://{host}:{port}".format(host=proxy.host, port=proxy.port)
+        # else:
+        #     request.meta['proxy'] = "https://{host}:{port}".format(host=proxy.host, port=proxy.port)
+        request.meta['proxy'] = "https://10.4.18.169:3128"
 
 
 class ShadowSpiderMiddleware(object):
