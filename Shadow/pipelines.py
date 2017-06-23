@@ -213,6 +213,8 @@ class RandomColumnPipeline(object):
             res = self.check_column_exist(item['hash'])
             if not res:
                 self.create_random_column(item)
+            else:
+                DropItem('Item already exist {0}'.format(item))
         return item
 
 

@@ -11,6 +11,7 @@ import scrapy
 import logging
 
 from scrapy import Request
+from scrapy.exceptions import CloseSpider
 from wechat_sender import LoggingSenderHandler
 
 from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem, ColumnItem
@@ -148,7 +149,7 @@ class ZhuanLanSpider(scrapy.Spider):
         'ITEM_PIPELINES': {
             # 'Shadow.pipelines.CheckAvailablePipeline': 200,
             'Shadow.pipelines.ArticleDataStorePipeline': 300,
-            'Shadow.pipelines.WechatSenderPipeline': 400,
+            # 'Shadow.pipelines.WechatSenderPipeline': 400,
         },
         'DOWNLOADER_MIDDLEWARES': {
             'Shadow.middlewares.UserAgentMiddleware': 1,
@@ -165,7 +166,10 @@ class ZhuanLanSpider(scrapy.Spider):
         if res:
             self.obj = res[0]
             self.start_urls = [self.obj.link]
-        session.close()
+            session.close()
+        else:
+            session.close()
+            raise CloseSpider("No item to crawling")
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
     def get_zhuanlan_name(self):
