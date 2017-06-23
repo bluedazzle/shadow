@@ -19,7 +19,7 @@ NEWSPIDER_MODULE = 'Shadow.spiders'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
-
+DOWNLOAD_HANDLERS = {'s3': None}
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 # CONCURRENT_REQUESTS = 32
 

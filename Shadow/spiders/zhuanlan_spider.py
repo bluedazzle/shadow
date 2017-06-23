@@ -2,15 +2,32 @@
 
 from __future__ import unicode_literals
 
+import re
 import json
 import random
-import re
 
+import datetime
 import scrapy
+import logging
+
 from scrapy import Request
+from wechat_sender import LoggingSenderHandler
 
 from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem, ColumnItem
+from Shadow.models import DBSession, ZHRandomColumn
 from Shadow.utils import md5
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('scrapy')
+log_formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+sender_logger = LoggingSenderHandler('spider', 'rapospectre', 'Sender 信息群', 'http://114.215.153.187',
+                                     level=logging.ERROR)
+sender_logger.setFormatter(log_formatter)
+file_hdlr = logging.FileHandler('/var/log/scrapy/spider_{0:%Y-%m-%d}.log'.format(datetime.datetime.now()), 'a')
+file_hdlr.setLevel(logging.INFO)
+file_hdlr.setFormatter(log_formatter)
+logger.addHandler(sender_logger)
+logger.addHandler(file_hdlr)
 
 
 class ZhuanLanArticleSpider(scrapy.Spider):
@@ -131,15 +148,25 @@ class ZhuanLanSpider(scrapy.Spider):
         'ITEM_PIPELINES': {
             # 'Shadow.pipelines.CheckAvailablePipeline': 200,
             'Shadow.pipelines.ArticleDataStorePipeline': 300,
+            'Shadow.pipelines.WechatSenderPipeline': 400,
         },
         'DOWNLOADER_MIDDLEWARES': {
             'Shadow.middlewares.UserAgentMiddleware': 1,
-            'Shadow.middlewares.ProxyMiddleware': 2,
+            # 'Shadow.middlewares.ProxyMiddleware': 2,
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True
         # 'CONCURRENT_REQUESTS': 1
     }
+
+    def __init__(self, *args, **kwargs):
+        session = DBSession()
+        res = session.query(ZHRandomColumn).all()
+        if res:
+            self.obj = res[0]
+            self.start_urls = [self.obj.link]
+        session.close()
+        super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
     def get_zhuanlan_name(self):
         self.url_name = self.start_urls[0].strip('/').split('/')[-1]

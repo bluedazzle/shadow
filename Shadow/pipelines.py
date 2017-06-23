@@ -11,9 +11,12 @@ import datetime
 import logging
 import requests
 from scrapy.exceptions import DropItem
+from wechat_sender import Sender
 
 from Shadow.const import ProtocolChoice
 from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
+
+logger = logging.getLogger('scrapy')
 
 
 class CheckAvailablePipeline(object):
@@ -57,7 +60,8 @@ class ProxyDataStorePipeline(object):
             self.session.flush()
             self.session.commit()
         except Exception as e:
-            logging.exception(e)
+            logger.exception(e)
+            self.session.rollback()
         finally:
             self.session.close()
 
@@ -73,10 +77,12 @@ class ArticleDataStorePipeline(object):
 
     def close_spider(self, spider):
         try:
+            self.session.delete(spider.obj)
             self.session.flush()
             self.session.commit()
         except Exception as e:
-            logging.exception(e)
+            self.session.rollback()
+            logger.exception(e)
         finally:
             self.session.close()
 
@@ -150,22 +156,23 @@ class ArticleDataStorePipeline(object):
         return article
 
     def process_item(self, item, spider):
-        if not self.check_exist(item.article['md5']):
-            column = self.check_column_exist(item.column['hash'])
-            author = self.check_user_exist(item.author['hash'])
-            if not author:
-                author = self.create_user(item.author)
-            if author.hash == item.creator['hash']:
-                creator = author
-            else:
-                creator = self.check_user_exist(item.creator['hash'])
-                if not creator:
-                    creator = self.create_user(item.creator)
-            if not column:
-                column = self.create_column(item.column, creator.id)
-            article = self.create_article(item.article, author.id, column.id)
-            tag_list = self.fetch_tags(item.tags)
-            self.create_tag_ref(tag_list, article.id)
+        if self.check_exist(item.article['md5']):
+            raise DropItem('Article item {0} already exist'.format(item.article['title']))
+        column = self.check_column_exist(item.column['hash'])
+        author = self.check_user_exist(item.author['hash'])
+        if not author:
+            author = self.create_user(item.author)
+        if author.hash == item.creator['hash']:
+            creator = author
+        else:
+            creator = self.check_user_exist(item.creator['hash'])
+            if not creator:
+                creator = self.create_user(item.creator)
+        if not column:
+            column = self.create_column(item.column, creator.id)
+        article = self.create_article(item.article, author.id, column.id)
+        tag_list = self.fetch_tags(item.tags)
+        self.create_tag_ref(tag_list, article.id)
         return item
 
 
@@ -183,13 +190,12 @@ class RandomColumnPipeline(object):
             self.session.flush()
             self.session.commit()
         except Exception as e:
-            logging.exception(e)
+            logger.exception(e)
             self.session.rollback()
         finally:
             self.session.close()
 
     def check_column_exist(self, md5):
-        # import pudb;pu.db;
         exist = self.session.query(ZHColumn).filter(ZHColumn.hash == md5).first()
         if exist:
             return exist
@@ -201,11 +207,27 @@ class RandomColumnPipeline(object):
         column.create_time = self.now
         column.modify_time = self.now
         self.session.add(column)
-        # self.session.commit()
 
     def process_item(self, item, spider):
         if item['hash'] != '':
             res = self.check_column_exist(item['hash'])
             if not res:
                 self.create_random_column(item)
+        return item
+
+
+class WechatSenderPipeline(object):
+    def __init__(self):
+        self.now = datetime.datetime.now()
+        self.total = 0
+        self.sender = Sender('rapospectre', 'rapospectre', 'http://114.215.153.187', port=10245)
+        super(WechatSenderPipeline, self).__init__()
+
+    def close_spider(self, spider):
+        msg = '[{time:%Y-%m-%d %H:%M:%S}]抓取专栏{slug}文章成功，抓取数目: {count}'.format(count=self.total, time=self.now,
+                                                                              slug=spider.obj.slug)
+        self.sender.send(msg)
+
+    def process_item(self, item, spider):
+        self.total += 1
         return item
