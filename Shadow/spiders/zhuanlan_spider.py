@@ -3,12 +3,13 @@
 from __future__ import unicode_literals
 
 import json
+import random
 import re
 
 import scrapy
 from scrapy import Request
 
-from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem
+from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem, ColumnItem
 from Shadow.utils import md5
 
 
@@ -117,10 +118,11 @@ class ZhuanLanArticleSpider(scrapy.Spider):
 class ZhuanLanSpider(scrapy.Spider):
     name = 'zhuanlan'
     host = 'https://zhuanlan.zhihu.com/'
-    start_urls = ['https://zhuanlan.zhihu.com/finance']
+    start_urls = ['https://zhuanlan.zhihu.com/HicRhodushicsalta']
     api_urls = 'https://zhuanlan.zhihu.com/api/columns/{0}/posts?limit=20&offset={1}'
     column_api_url = 'https://zhuanlan.zhihu.com/api/columns/{slug}'
     offset = 0
+    total = 0
     url_name = ''
     column = None
     creator = None
@@ -135,7 +137,8 @@ class ZhuanLanSpider(scrapy.Spider):
             'Shadow.middlewares.ProxyMiddleware': 2,
         },
         'COOKIES_ENABLED': False,
-        'CONCURRENT_REQUESTS': 1
+        'RANDOMIZE_DOWNLOAD_DELAY': True
+        # 'CONCURRENT_REQUESTS': 1
     }
 
     def get_zhuanlan_name(self):
@@ -164,6 +167,7 @@ class ZhuanLanSpider(scrapy.Spider):
         data = json.loads(response.body)
         item = ZHColumnItem()
         slug = data.get('slug')
+        self.total = int(data.get('postsCount', 0))
         item['name'] = data.get('name')
         item['link'] = 'https://zhuanlan.zhihu.com/{0}'.format(slug)
         item['hash'] = md5('{0}'.format(slug))
@@ -172,7 +176,7 @@ class ZhuanLanSpider(scrapy.Spider):
         item['avatar'] = data.get('avatar').get('template',
                                                 'https://pic2.zhimg.com/{id}_{size}.jpg').format(
             id=data.get('avatar').get('id'), size='l')
-        self.column = item
+        self.column = item.copy()
         creator = data.get('creator')
         if creator:
             item = ZHUserItem()
@@ -186,9 +190,10 @@ class ZhuanLanSpider(scrapy.Spider):
             item['avatar'] = creator.get('avatar').get('template',
                                                        'https://pic1.zhimg.com/{id}_{size}.jpg').format(
                 id=creator.get('avatar').get('id'), size='l')
-            self.creator = item
+            self.creator = item.copy()
 
     def parse_api_result(self, response):
+        offset = int(response.url.split('&')[-1].split('=')[-1])
         data = json.loads(response.body)
         for article in data:
             item = ZHCombinationItem()
@@ -216,10 +221,10 @@ class ZhuanLanSpider(scrapy.Spider):
                 item.author['avatar'] = author.get('avatar').get('template',
                                                                  'https://pic1.zhimg.com/{id}_{size}.jpg').format(
                     id=author.get('avatar').get('id'), size='l')
-            item.column = self.column.copy()
-            item.creator = self.creator.copy()
+            item.column = self.column
+            item.creator = self.creator
             yield item
-        if len(data) == 20:
+        if offset < self.total:
             url = self.generate_api_url(20)
             yield Request(url, callback=self.parse_api_result, headers=response.headers)
 
@@ -227,17 +232,41 @@ class ZhuanLanSpider(scrapy.Spider):
 class RandomFetchSpider(scrapy.Spider):
     name = 'random'
     host = 'https://zhuanlan.zhihu.com/'
+    start_urls = ['https://zhuanlan.zhihu.com/']
+    random_api_url = 'https://zhuanlan.zhihu.com/api/recommendations/columns?limit={limit}&offset={offset}&seed={seed}'
 
     custom_settings = {
         'ITEM_PIPELINES': {
             # 'Shadow.pipelines.CheckAvailablePipeline': 200,
-            'Shadow.pipelines.ArticleDataStorePipeline': 300,
+            'Shadow.pipelines.RandomColumnPipeline': 300,
         },
         'DOWNLOADER_MIDDLEWARES': {
             'Shadow.middlewares.UserAgentMiddleware': 1,
-            'Shadow.middlewares.ProxyMiddleware': 2,
+            # 'Shadow.middlewares.ProxyMiddleware': 2,
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
-        'DOWNLOAD_DELAY': 10
+        'DOWNLOAD_DELAY': 2
     }
+
+    def generate_url(self):
+        limit = random.randint(13, 40)
+        offset = random.randint(0, 100)
+        seed = random.randint(0, 100)
+        return self.random_api_url.format(limit=limit, offset=offset, seed=seed)
+
+    def parse_random_item(self, response):
+        data = json.loads(response.body)
+        for itm in data:
+            item = ColumnItem()
+            item['slug'] = itm.get('slug', '')
+            item['link'] = 'https://zhuanlan.zhihu.com/{0}'.format(item['slug'])
+            item['hash'] = md5(item['slug'])
+            yield item
+
+    def parse(self, response):
+        headers = dict()
+        headers['referer'] = response.url
+        for i in xrange(10):
+            url = self.generate_url()
+            yield Request(url, headers=headers, callback=self.parse_random_item)

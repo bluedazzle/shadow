@@ -85,6 +85,17 @@ class ZHArticleTagRef(Base):
     tag_id = Column(Integer)
 
 
+class ZHRandomColumn(Base):
+    __tablename__ = 'core_zhrandomcolumn'
+
+    id = Column(Integer, primary_key=True)
+    create_time = Column(DateTime)
+    modify_time = Column(DateTime)
+    slug = Column(String, unique=True)
+    link = Column(String)
+    hash = Column(String, unique=True)
+
+
 engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 

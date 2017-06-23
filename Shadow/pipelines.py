@@ -8,11 +8,12 @@ from __future__ import unicode_literals
 
 import datetime
 
+import logging
 import requests
 from scrapy.exceptions import DropItem
 
 from Shadow.const import ProtocolChoice
-from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag
+from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
 
 
 class CheckAvailablePipeline(object):
@@ -52,9 +53,13 @@ class ProxyDataStorePipeline(object):
         return item
 
     def close_spider(self, spider):
-        self.session.flush()
-        self.session.commit()
-        self.session.close()
+        try:
+            self.session.flush()
+            self.session.commit()
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            self.session.close()
 
 
 class ArticleDataStorePipeline(object):
@@ -67,9 +72,13 @@ class ArticleDataStorePipeline(object):
         self.session = DBSession()
 
     def close_spider(self, spider):
-        self.session.flush()
-        self.session.commit()
-        self.session.close()
+        try:
+            self.session.flush()
+            self.session.commit()
+        except Exception as e:
+            logging.exception(e)
+        finally:
+            self.session.close()
 
     def check_exist(self, md5):
         exist = self.session.query(ZHArticle).filter(ZHArticle.md5 == md5).first()
@@ -157,4 +166,46 @@ class ArticleDataStorePipeline(object):
             article = self.create_article(item.article, author.id, column.id)
             tag_list = self.fetch_tags(item.tags)
             self.create_tag_ref(tag_list, article.id)
+        return item
+
+
+class RandomColumnPipeline(object):
+    def __init__(self):
+        self.now = datetime.datetime.now()
+        self.session = None
+        super(RandomColumnPipeline, self).__init__()
+
+    def open_spider(self, spider):
+        self.session = DBSession()
+
+    def close_spider(self, spider):
+        try:
+            self.session.flush()
+            self.session.commit()
+        except Exception as e:
+            logging.exception(e)
+            self.session.rollback()
+        finally:
+            self.session.close()
+
+    def check_column_exist(self, md5):
+        # import pudb;pu.db;
+        exist = self.session.query(ZHColumn).filter(ZHColumn.hash == md5).first()
+        if exist:
+            return exist
+        exist = self.session.query(ZHRandomColumn).filter(ZHRandomColumn.hash == md5).first()
+        return exist if exist else False
+
+    def create_random_column(self, item):
+        column = ZHRandomColumn(link=item['link'], slug=item['slug'], hash=item['hash'])
+        column.create_time = self.now
+        column.modify_time = self.now
+        self.session.add(column)
+        # self.session.commit()
+
+    def process_item(self, item, spider):
+        if item['hash'] != '':
+            res = self.check_column_exist(item['hash'])
+            if not res:
+                self.create_random_column(item)
         return item

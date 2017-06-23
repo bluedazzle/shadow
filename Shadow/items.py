@@ -58,7 +58,13 @@ class TagItem(scrapy.Item):
     name = scrapy.Field()
 
 
-class ZHCombinationItem(scrapy.Item):
+class ColumnItem(scrapy.Item):
+    link = scrapy.Field()
+    slug = scrapy.Field()
+    hash = scrapy.Field()
+
+
+class ZHCombinationItem(dict):
     article = ZHArticleItem()
     author = ZHUserItem()
     creator = ZHUserItem()
