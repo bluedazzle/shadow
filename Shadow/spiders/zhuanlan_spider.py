@@ -157,7 +157,7 @@ class ZhuanLanSpider(scrapy.Spider):
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True
-        # 'CONCURRENT_REQUESTS': 1
+        'CONCURRENT_REQUESTS': 1
     }
 
     def __init__(self, *args, **kwargs):

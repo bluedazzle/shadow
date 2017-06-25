@@ -67,6 +67,8 @@ class ZHUser(Base):
     description = Column(String, nullable=True)
     headline = Column(String, nullable=True)
     avatar = Column(String)
+    crawl_column = Column(Boolean, default=False)
+    crawl_follow = Column(Boolean, default=False)
 
 
 class Tag(Base):
@@ -96,7 +98,7 @@ class ZHRandomColumn(Base):
     hash = Column(String, unique=True)
 
 
-engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
+engine = create_engine('postgresql+psycopg2://postgres:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)

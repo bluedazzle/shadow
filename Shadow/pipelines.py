@@ -19,6 +19,26 @@ from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRe
 logger = logging.getLogger('scrapy')
 
 
+class DataStorePipelineBase(object):
+    def __init__(self):
+        self.now = datetime.datetime.now()
+        self.session = None
+        super(DataStorePipelineBase, self).__init__()
+
+    def open_spider(self, spider):
+        self.session = DBSession()
+
+    def close_spider(self, spider):
+        try:
+            self.session.flush()
+            self.session.commit()
+        except Exception as e:
+            logger.exception(e)
+            self.session.rollback()
+        finally:
+            self.session.close()
+
+
 class CheckAvailablePipeline(object):
     url = 'https://www.baidu.com'
 
@@ -207,6 +227,7 @@ class RandomColumnPipeline(object):
         column.create_time = self.now
         column.modify_time = self.now
         self.session.add(column)
+        self.session.commit()
 
     def process_item(self, item, spider):
         if item['hash'] != '':
@@ -214,7 +235,7 @@ class RandomColumnPipeline(object):
             if not res:
                 self.create_random_column(item)
             else:
-                DropItem('Item already exist {0}'.format(item))
+                raise DropItem('Item already exist {0}'.format(item))
         return item
 
 
@@ -232,4 +253,29 @@ class WechatSenderPipeline(object):
 
     def process_item(self, item, spider):
         self.total += 1
+        return item
+
+
+class UserStorePipeline(DataStorePipelineBase):
+    def check_user_exist(self, md5):
+        res = self.session.query(ZHUser).filter(ZHUser.hash == md5).first()
+        return res if res else False
+
+    def create_user(self, item):
+        user = ZHUser(zuid=item['zuid'], name=item['name'], link=item['link'], hash=item['hash'], slug=item['slug'],
+                      description=item['description'], headline=item['headline'], avatar=item['avatar'],
+                      create_time=self.now,
+                      modify_time=self.now)
+        try:
+            self.session.add(user)
+            self.session.commit()
+        except Exception as e:
+            logging.exception(e)
+            self.session.rollback()
+        return user
+
+    def process_item(self, item, spider):
+        if self.check_user_exist(item['hash']):
+            raise DropItem('User Item already exist {0}'.format(item))
+        self.create_user(item)
         return item
