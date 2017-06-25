@@ -172,7 +172,7 @@ class ArticleDataStorePipeline(object):
         article.author_id = author_id
         article.belong_id = column_id
         self.session.add(article)
-        self.session.flush()
+        self.session.commit()
         return article
 
     def process_item(self, item, spider):
@@ -191,8 +191,8 @@ class ArticleDataStorePipeline(object):
         if not column:
             column = self.create_column(item.column, creator.id)
         article = self.create_article(item.article, author.id, column.id)
-        tag_list = self.fetch_tags(item.tags)
-        self.create_tag_ref(tag_list, article.id)
+        # tag_list = self.fetch_tags(item.tags)
+        # self.create_tag_ref(tag_list, article.id)
         return item
 
 

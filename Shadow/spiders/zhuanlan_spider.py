@@ -156,7 +156,7 @@ class ZhuanLanSpider(scrapy.Spider):
             # 'Shadow.middlewares.ProxyMiddleware': 2,
         },
         'COOKIES_ENABLED': False,
-        'RANDOMIZE_DOWNLOAD_DELAY': True
+        'RANDOMIZE_DOWNLOAD_DELAY': True,
         'CONCURRENT_REQUESTS': 1
     }
 
