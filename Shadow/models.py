@@ -98,7 +98,7 @@ class ZHRandomColumn(Base):
     hash = Column(String, unique=True)
 
 
-engine = create_engine('postgresql+psycopg2://postgres:123456qq@localhost:5432/lighthouse',
+engine = create_engine('postgresql+psycopg2://lg_user:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)

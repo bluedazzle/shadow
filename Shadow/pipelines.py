@@ -98,7 +98,6 @@ class ArticleDataStorePipeline(object):
     def close_spider(self, spider):
         try:
             self.session.delete(spider.obj)
-            self.session.flush()
             self.session.commit()
         except Exception as e:
             self.session.rollback()
@@ -115,7 +114,7 @@ class ArticleDataStorePipeline(object):
         return exist if exist else False
 
     def check_user_exist(self, md5):
-        exist = self.session.query(ZHUser).filter(ZHUser.hash == md5).first()
+        exist = self.session.query(ZHUser).filter(ZHUser.slug == md5).first()
         return exist if exist else False
 
     def check_tag_exist(self, name):
@@ -127,7 +126,7 @@ class ArticleDataStorePipeline(object):
                           description=item['description'], avatar=item['avatar'], creator_id=creator_id,
                           create_time=self.now, modify_time=self.now)
         self.session.add(column)
-        self.session.flush()
+        self.session.commit()
         return column
 
     def create_user(self, item):
@@ -135,14 +134,22 @@ class ArticleDataStorePipeline(object):
                       description=item['description'], headline=item['headline'], avatar=item['avatar'],
                       create_time=self.now,
                       modify_time=self.now)
-        self.session.add(user)
-        self.session.flush()
+
+        try:
+            self.session.add(user)
+            self.session.commit()
+        except Exception as e:
+            logging.exception(e)
+            self.session.rollback()
+            self.session.close()
+            self.session = DBSession()
+            #user = self.check_user_exist(item['hash'])
         return user
 
     def create_tag(self, name):
         tag = Tag(name=name, create_time=self.now, modify_time=self.now)
         self.session.add(tag)
-        self.session.flush()
+        self.session.commit()
         return tag
 
     def fetch_tag(self, name):
@@ -178,21 +185,20 @@ class ArticleDataStorePipeline(object):
     def process_item(self, item, spider):
         if self.check_exist(item.article['md5']):
             raise DropItem('Article item {0} already exist'.format(item.article['title']))
+        self.now = datetime.datetime.now()
         column = self.check_column_exist(item.column['hash'])
-        author = self.check_user_exist(item.author['hash'])
+        author = self.check_user_exist(item.author['slug'])
         if not author:
             author = self.create_user(item.author)
-        if author.hash == item.creator['hash']:
+        if author.slug == item.creator['slug']:
             creator = author
         else:
-            creator = self.check_user_exist(item.creator['hash'])
+            creator = self.check_user_exist(item.creator['slug'])
             if not creator:
                 creator = self.create_user(item.creator)
         if not column:
             column = self.create_column(item.column, creator.id)
         article = self.create_article(item.article, author.id, column.id)
-        # tag_list = self.fetch_tags(item.tags)
-        # self.create_tag_ref(tag_list, article.id)
         return item
 
 
@@ -230,6 +236,7 @@ class RandomColumnPipeline(object):
         self.session.commit()
 
     def process_item(self, item, spider):
+        self.now = datetime.datetime.now()
         if item['hash'] != '':
             res = self.check_column_exist(item['hash'])
             if not res:
@@ -258,7 +265,7 @@ class WechatSenderPipeline(object):
 
 class UserStorePipeline(DataStorePipelineBase):
     def check_user_exist(self, md5):
-        res = self.session.query(ZHUser).filter(ZHUser.hash == md5).first()
+        res = self.session.query(ZHUser).filter(ZHUser.slug == md5).first()
         return res if res else False
 
     def create_user(self, item):
@@ -275,7 +282,8 @@ class UserStorePipeline(DataStorePipelineBase):
         return user
 
     def process_item(self, item, spider):
-        if self.check_user_exist(item['hash']):
+        self.now = datetime.datetime.now()
+        if self.check_user_exist(item['slug']):
             raise DropItem('User Item already exist {0}'.format(item))
         self.create_user(item)
         return item

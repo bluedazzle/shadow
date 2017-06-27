@@ -102,7 +102,7 @@ class ZHPeopleFollowsSpider(scrapy.Spider):
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
-        'DOWNLOAD_DELAY': 1,
+        'DOWNLOAD_DELAY': 5,
         'CONCURRENT_REQUESTS': 1
     }
 
@@ -190,7 +190,7 @@ class ZHPeopleColumnSpider(scrapy.Spider):
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
-        'DOWNLOAD_DELAY': 1,
+        'DOWNLOAD_DELAY': 5,
         'CONCURRENT_REQUESTS': 1
     }
 
@@ -205,7 +205,7 @@ class ZHPeopleColumnSpider(scrapy.Spider):
         super(ZHPeopleColumnSpider, self).__init__(*args, **kwargs)
 
     def fetch_obj(self):
-        self.user = self.session.query(ZHUser).filter(ZHUser.crawl_follow == False).first()
+        self.user = self.session.query(ZHUser).filter(ZHUser.crawl_column == False).first()
         return self.user
 
     def modify_obj(self):

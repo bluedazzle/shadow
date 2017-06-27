@@ -160,17 +160,43 @@ class ZhuanLanSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 1
     }
 
+    # def __init__(self, *args, **kwargs):
+    #     session = DBSession()
+    #     res = session.query(ZHRandomColumn).all()
+    #     if res:
+    #         self.obj = res[0]
+    #         self.start_urls = [self.obj.link]
+    #         session.close()
+    #     else:
+    #         session.close()
+    #         raise CloseSpider("No item to crawling")
+    #     super(ZhuanLanSpider, self).__init__(*args, **kwargs)
+
     def __init__(self, *args, **kwargs):
-        session = DBSession()
-        res = session.query(ZHRandomColumn).all()
-        if res:
-            self.obj = res[0]
-            self.start_urls = [self.obj.link]
-            session.close()
-        else:
-            session.close()
-            raise CloseSpider("No item to crawling")
+        self.session = DBSession()
+        self.obj = None
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
+
+    # def start_requests(self):
+    #    while 1:
+    #        self.obj = self.session.query(ZHRandomColumn).first()
+    #        if self.obj:
+    #            self.start_urls = [self.obj.link]
+    #            yield self.make_requests_from_url(self.obj.link)
+    #        else:
+    #            self.session.close()
+    #            raise CloseSpider("No item to crawling")
+
+    def modify_obj(self):
+        if self.obj:
+            try:
+                self.session.delete(self.obj)
+                self.session.commit()
+            except Exception as e:
+                logging.exception(e)
+                self.session.rollback()
+                self.session.close()
+                self.session = DBSession()
 
     def get_zhuanlan_name(self):
         self.url_name = self.start_urls[0].strip('/').split('/')[-1]
@@ -193,6 +219,8 @@ class ZhuanLanSpider(scrapy.Spider):
         yield Request(url, headers=headers, callback=self.parse_api_result)
         url = self.column_api_url.format(slug=self.get_zhuanlan_name())
         yield Request(url, headers=headers, callback=self.parse_column_info)
+
+    # self.modify_obj()
 
     def parse_column_info(self, response):
         data = json.loads(response.body)
