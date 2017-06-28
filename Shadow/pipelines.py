@@ -279,6 +279,8 @@ class UserStorePipeline(DataStorePipelineBase):
         except Exception as e:
             logging.exception(e)
             self.session.rollback()
+            self.session.close()
+            self.session = DBSession()
         return user
 
     def process_item(self, item, spider):

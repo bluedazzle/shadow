@@ -160,22 +160,21 @@ class ZhuanLanSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 1
     }
 
-    # def __init__(self, *args, **kwargs):
-    #     session = DBSession()
-    #     res = session.query(ZHRandomColumn).all()
-    #     if res:
-    #         self.obj = res[0]
-    #         self.start_urls = [self.obj.link]
-    #         session.close()
-    #     else:
-    #         session.close()
-    #         raise CloseSpider("No item to crawling")
-    #     super(ZhuanLanSpider, self).__init__(*args, **kwargs)
-
     def __init__(self, *args, **kwargs):
-        self.session = DBSession()
-        self.obj = None
+        session = DBSession()
+        self.obj = session.query(ZHRandomColumn).first()
+        if self.obj:
+            self.start_urls = [self.obj.link]
+            session.close()
+        else:
+            session.close()
+            raise CloseSpider("No random column item to crawling")
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
+
+    # def __init__(self, *args, **kwargs):
+    #     self.session = DBSession()
+    #     self.obj = None
+    #     super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
     # def start_requests(self):
     #    while 1:

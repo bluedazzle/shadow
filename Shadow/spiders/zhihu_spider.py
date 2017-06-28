@@ -129,8 +129,10 @@ class ZHPeopleFollowsSpider(scrapy.Spider):
     def start_requests(self):
         while 1:
             url = self.start_urls[0]
-            self.fetch_obj()
-            yield self.make_requests_from_url(url)
+            if self.fetch_obj():
+                yield self.make_requests_from_url(url)
+            else:
+                raise CloseSpider('No available user item to crawl follows')
 
     def parse(self, response):
         matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
@@ -217,8 +219,10 @@ class ZHPeopleColumnSpider(scrapy.Spider):
     def start_requests(self):
         while 1:
             url = self.start_urls[0]
-            self.fetch_obj()
-            yield self.make_requests_from_url(url)
+            if self.fetch_obj():
+                yield self.make_requests_from_url(url)
+            else:
+                raise CloseSpider('No available user item to crawl columns')
 
     def parse(self, response):
         matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
