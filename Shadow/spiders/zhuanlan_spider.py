@@ -218,9 +218,7 @@ class ZhuanLanSpider(scrapy.Spider):
         yield Request(url, headers=headers, callback=self.parse_api_result)
         url = self.column_api_url.format(slug=self.get_zhuanlan_name())
         yield Request(url, headers=headers, callback=self.parse_column_info)
-        self.modify_obj()
-
-    # self.modify_obj()
+        # self.modify_obj()
 
     def parse_column_info(self, response):
         data = json.loads(response.body)
