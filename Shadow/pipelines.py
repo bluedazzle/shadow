@@ -10,8 +10,10 @@ import datetime
 
 import logging
 import requests
+import random
 from scrapy.exceptions import DropItem
 from wechat_sender import Sender
+from bs4 import BeautifulSoup
 
 from Shadow.const import ProtocolChoice
 from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
@@ -30,7 +32,6 @@ class DataStorePipelineBase(object):
 
     def close_spider(self, spider):
         try:
-            self.session.flush()
             self.session.commit()
         except Exception as e:
             logger.exception(e)
@@ -77,7 +78,6 @@ class ProxyDataStorePipeline(object):
 
     def close_spider(self, spider):
         try:
-            self.session.flush()
             self.session.commit()
         except Exception as e:
             logger.exception(e)
@@ -134,7 +134,6 @@ class ArticleDataStorePipeline(object):
                       description=item['description'], headline=item['headline'], avatar=item['avatar'],
                       create_time=self.now,
                       modify_time=self.now)
-
         try:
             self.session.add(user)
             self.session.commit()
@@ -169,7 +168,22 @@ class ArticleDataStorePipeline(object):
         for tag in tag_list:
             self.session.add(ZHArticleTagRef(zharticle_id=article_id, tag_id=tag.id))
 
+    def fix_image(self, item):
+        soup = BeautifulSoup(item['content'])
+        finds = soup.find_all('img')
+        for itm in finds:
+            host_random = random.randint(1, 4)
+            itm['src'] = 'https://pic{0}.zhimg.com/{1}'.format(host_random, itm['src'])
+        if not item['cover']:
+            if finds:
+                item['cover'] = finds[0]['src']
+            else:
+                item['cover'] = '/s/image/default.jpg'
+        item['content'] = soup.prettify()
+        return item
+
     def create_article(self, item, author_id, column_id):
+        item = self.fix_image(item)
         article = ZHArticle(title=item['title'], content=item['content'],
                             cover=item['cover'], md5=item['md5'],
                             link=item['link'], token=item['token'],
@@ -213,7 +227,6 @@ class RandomColumnPipeline(object):
 
     def close_spider(self, spider):
         try:
-            self.session.flush()
             self.session.commit()
         except Exception as e:
             logger.exception(e)
