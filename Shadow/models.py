@@ -9,6 +9,49 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
+def _unique(session, cls, hashfunc, queryfunc, constructor, arg, kw):
+    new = False
+    cache = getattr(session, '_unique_cache', None)
+    if cache is None:
+        session._unique_cache = cache = {}
+
+    key = (cls, hashfunc(*arg, **kw))
+    if key in cache:
+        return cache[key], new
+    else:
+        with session.no_autoflush:
+            q = session.query(cls)
+            q = queryfunc(q, *arg, **kw)
+            obj = q.first()
+            if not obj:
+                new = True
+                obj = constructor(*arg, **kw)
+                session.merge(obj)
+        cache[key] = obj
+        return obj, new
+
+
+class UniqueMixin(object):
+    @classmethod
+    def unique_hash(cls, *arg, **kw):
+        raise NotImplementedError()
+
+    @classmethod
+    def unique_filter(cls, query, *arg, **kw):
+        raise NotImplementedError()
+
+    @classmethod
+    def as_unique(cls, session, *arg, **kw):
+        return _unique(
+            session,
+            cls,
+            cls.unique_hash,
+            cls.unique_filter,
+            cls,
+            arg, kw
+        )
+
+
 class Proxy(Base):
     __tablename__ = 'core_proxy'
 
@@ -21,7 +64,7 @@ class Proxy(Base):
     available = Column(Boolean)
 
 
-class ZHArticle(Base):
+class ZHArticle(UniqueMixin, Base):
     __tablename__ = 'core_zharticle'
 
     id = Column(Integer, primary_key=True)
@@ -37,8 +80,16 @@ class ZHArticle(Base):
     author_id = Column(Integer)
     belong_id = Column(Integer)
 
+    @classmethod
+    def unique_hash(cls, *args, **kwargs):
+        return kwargs['md5']
 
-class ZHColumn(Base):
+    @classmethod
+    def unique_filter(cls, query, *args, **kwargs):
+        return query.filter(ZHArticle.md5 == kwargs['md5'])
+
+
+class ZHColumn(UniqueMixin, Base):
     __tablename__ = 'core_zhcolumn'
 
     id = Column(Integer, primary_key=True)
@@ -52,8 +103,16 @@ class ZHColumn(Base):
     avatar = Column(String)
     creator_id = Column(Integer, nullable=True)
 
+    @classmethod
+    def unique_hash(cls, *args, **kwargs):
+        return kwargs['hash']
 
-class ZHUser(Base):
+    @classmethod
+    def unique_filter(cls, query, *args, **kwargs):
+        return query.filter(ZHColumn.hash == kwargs['hash'])
+
+
+class ZHUser(UniqueMixin, Base):
     __tablename__ = 'core_zhuser'
 
     id = Column(Integer, primary_key=True)
@@ -69,6 +128,14 @@ class ZHUser(Base):
     avatar = Column(String)
     crawl_column = Column(Boolean, default=False)
     crawl_follow = Column(Boolean, default=False)
+
+    @classmethod
+    def unique_hash(cls, *args, **kwargs):
+        return kwargs['slug']
+
+    @classmethod
+    def unique_filter(cls, query, *args, **kwargs):
+        return query.filter(ZHUser.slug == kwargs['slug'])
 
 
 class Tag(Base):
@@ -87,7 +154,7 @@ class ZHArticleTagRef(Base):
     tag_id = Column(Integer)
 
 
-class ZHRandomColumn(Base):
+class ZHRandomColumn(UniqueMixin, Base):
     __tablename__ = 'core_zhrandomcolumn'
 
     id = Column(Integer, primary_key=True)
@@ -97,8 +164,16 @@ class ZHRandomColumn(Base):
     link = Column(String)
     hash = Column(String, unique=True)
 
+    @classmethod
+    def unique_hash(cls, *args, **kwargs):
+        return kwargs['slug']
 
-engine = create_engine('postgresql+psycopg2://lg_user:123456qq@localhost:5432/lighthouse',
+    @classmethod
+    def unique_filter(cls, query, *args, **kwargs):
+        return query.filter(ZHRandomColumn.slug == kwargs['slug'])
+
+
+engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)

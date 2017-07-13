@@ -9,6 +9,8 @@ from __future__ import unicode_literals
 import datetime
 
 import logging
+
+import pytz
 import requests
 from scrapy.exceptions import DropItem
 from wechat_sender import Sender
@@ -21,22 +23,39 @@ logger = logging.getLogger('scrapy')
 
 class DataStorePipelineBase(object):
     def __init__(self):
-        self.now = datetime.datetime.now()
+        self.now = datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai'))
         self.session = None
+        self.count = 0
         super(DataStorePipelineBase, self).__init__()
+
+    def get_now(self):
+        self.now = datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai'))
+        return self.now
 
     def open_spider(self, spider):
         self.session = DBSession()
 
     def close_spider(self, spider):
         try:
-            self.session.flush()
             self.session.commit()
+            self.session._unique_cache = None
         except Exception as e:
             logger.exception(e)
             self.session.rollback()
         finally:
             self.session.close()
+
+    def periodic_commit(self):
+        self.count += 1
+        if self.count == 100:
+            try:
+                logger.info('Periodic commit to database')
+                self.count = 0
+                self.session.commit()
+                self.session._unique_cache = None
+            except Exception as e:
+                logger.exception(e)
+                self.session.rollback()
 
 
 class CheckAvailablePipeline(object):
@@ -86,101 +105,64 @@ class ProxyDataStorePipeline(object):
             self.session.close()
 
 
-class ArticleDataStorePipeline(object):
-    def __init__(self):
-        self.now = datetime.datetime.now()
-        self.session = None
-        super(ArticleDataStorePipeline, self).__init__()
-
-    def open_spider(self, spider):
-        self.session = DBSession()
-
+class ArticleDataStorePipeline(DataStorePipelineBase):
     def close_spider(self, spider):
         try:
             self.session.delete(spider.obj)
             self.session.commit()
+            self.session._unique_cache = None
         except Exception as e:
             self.session.rollback()
             logger.exception(e)
         finally:
             self.session.close()
 
-    def check_exist(self, md5):
-        exist = self.session.query(ZHArticle).filter(ZHArticle.md5 == md5).first()
-        return True if exist else False
-
-    def check_column_exist(self, md5):
-        exist = self.session.query(ZHColumn).filter(ZHColumn.hash == md5).first()
-        return exist if exist else False
-
-    def check_user_exist(self, md5):
-        exist = self.session.query(ZHUser).filter(ZHUser.slug == md5).first()
-        return exist if exist else False
-
-    def check_tag_exist(self, name):
-        exist = self.session.query(Tag).filter(Tag.name == name).first()
-        return exist if exist else False
+    def get_id(self, model):
+        obj = self.session.query(model.id).order_by(model.id.desc()).first()
+        return obj[0] + 1
+    #
+    # def check_exist(self, md5):
+    #     exist = self.session.query(ZHArticle.id).filter(ZHArticle.md5 == md5).first()
+    #     return True if exist[0] else False
+    #
+    # def check_column_exist(self, md5):
+    #     exist = self.session.query(ZHColumn).filter(ZHColumn.hash == md5).first()
+    #     return exist if exist else False
+    #
+    # def check_user_exist(self, md5):
+    #     exist = self.session.query(ZHUser).filter(ZHUser.slug == md5).first()
+    #     return exist if exist else False
+    #
+    # def check_tag_exist(self, name):
+    #     exist = self.session.query(Tag.id).filter(Tag.name == name).first()
+    #     return exist if exist[0] else False
 
     def create_column(self, item, creator_id=None):
-        column = ZHColumn(name=item['name'], link=item['link'], hash=item['hash'], slug=item['slug'],
-                          description=item['description'], avatar=item['avatar'], creator_id=creator_id,
-                          create_time=self.now, modify_time=self.now)
-        self.session.add(column)
-        self.session.commit()
-        return column
+        self.get_now()
+        self.get_id(ZHColumn)
+        return ZHColumn.as_unique(self.session, name=item['name'], link=item['link'], hash=item['hash'],
+                                  slug=item['slug'],
+                                  description=item['description'], avatar=item['avatar'], creator_id=creator_id,
+                                  create_time=self.now, modify_time=self.now, id=uid)
 
     def create_user(self, item):
-        user = ZHUser(zuid=item['zuid'], name=item['name'], link=item['link'], hash=item['hash'], slug=item['slug'],
-                      description=item['description'], headline=item['headline'], avatar=item['avatar'],
-                      create_time=self.now,
-                      modify_time=self.now)
-
-        try:
-            self.session.add(user)
-            self.session.commit()
-        except Exception as e:
-            logging.exception(e)
-            self.session.rollback()
-            self.session.close()
-            self.session = DBSession()
-            #user = self.check_user_exist(item['hash'])
-        return user
-
-    def create_tag(self, name):
-        tag = Tag(name=name, create_time=self.now, modify_time=self.now)
-        self.session.add(tag)
-        self.session.commit()
-        return tag
-
-    def fetch_tag(self, name):
-        tag = self.check_tag_exist(name)
-        if not tag:
-            tag = self.create_tag(name)
-        return tag
-
-    def fetch_tags(self, tags):
-        tag_list = []
-        for tag in tags:
-            tag = self.fetch_tag(tag['name'])
-            tag_list.append(tag)
-        return tag_list
-
-    def create_tag_ref(self, tag_list, article_id):
-        for tag in tag_list:
-            self.session.add(ZHArticleTagRef(zharticle_id=article_id, tag_id=tag.id))
+        self.get_now()
+        return ZHUser.as_unique(self.session, zuid=item['zuid'], name=item['name'], link=item['link'],
+                                hash=item['hash'], slug=item['slug'],
+                                description=item['description'], headline=item['headline'], avatar=item['avatar'],
+                                create_time=self.now,
+                                modify_time=self.now)
 
     def create_article(self, item, author_id, column_id):
-        article = ZHArticle(title=item['title'], content=item['content'],
-                            cover=item['cover'], md5=item['md5'],
-                            link=item['link'], token=item['token'],
-                            summary=item['summary'])
+        article, new = ZHArticle.as_unique(self.session, title=item['title'], content=item['content'],
+                                           cover=item['cover'], md5=item['md5'],
+                                           link=item['link'], token=item['token'],
+                                           summary=item['summary'])
         article.create_time = datetime.datetime.strptime(item['create_time'], '%Y-%m-%dT%H:%M:%S+08:00')
         article.modify_time = datetime.datetime.strptime(item['modify_time'], '%Y-%m-%dT%H:%M:%S+08:00')
         article.author_id = author_id
         article.belong_id = column_id
-        self.session.add(article)
-        self.session.commit()
-        return article
+        return article, new
 
     def process_item(self, item, spider):
         if self.check_exist(item.article['md5']):
@@ -199,50 +181,28 @@ class ArticleDataStorePipeline(object):
         if not column:
             column = self.create_column(item.column, creator.id)
         article = self.create_article(item.article, author.id, column.id)
+        self.periodic_commit()
         return item
 
 
-class RandomColumnPipeline(object):
-    def __init__(self):
-        self.now = datetime.datetime.now()
-        self.session = None
-        super(RandomColumnPipeline, self).__init__()
-
-    def open_spider(self, spider):
-        self.session = DBSession()
-
-    def close_spider(self, spider):
-        try:
-            self.session.flush()
-            self.session.commit()
-        except Exception as e:
-            logger.exception(e)
-            self.session.rollback()
-        finally:
-            self.session.close()
-
-    def check_column_exist(self, md5):
-        exist = self.session.query(ZHColumn).filter(ZHColumn.hash == md5).first()
-        if exist:
-            return exist
-        exist = self.session.query(ZHRandomColumn).filter(ZHRandomColumn.hash == md5).first()
-        return exist if exist else False
+class RandomColumnPipeline(DataStorePipelineBase):
+    def check_exist(self, item):
+        obj = self.session.query(ZHColumn.id).filter(ZHColumn.slug == item['slug'])
+        return self.session.query(obj.exists()).scalar()
 
     def create_random_column(self, item):
-        column = ZHRandomColumn(link=item['link'], slug=item['slug'], hash=item['hash'])
-        column.create_time = self.now
-        column.modify_time = self.now
-        self.session.add(column)
-        self.session.commit()
+        if self.check_exist(item):
+            return None, False
+        self.get_now()
+        return ZHRandomColumn.as_unique(self.session, link=item['link'], slug=item['slug'], hash=item['hash'],
+                                        create_time=self.now, modify_time=self.now)
 
     def process_item(self, item, spider):
-        self.now = datetime.datetime.now()
         if item['hash'] != '':
-            res = self.check_column_exist(item['hash'])
-            if not res:
-                self.create_random_column(item)
-            else:
+            column, new = self.create_random_column(item)
+            if not new:
                 raise DropItem('Item already exist {0}'.format(item))
+        self.periodic_commit()
         return item
 
 
@@ -264,28 +224,16 @@ class WechatSenderPipeline(object):
 
 
 class UserStorePipeline(DataStorePipelineBase):
-    def check_user_exist(self, md5):
-        res = self.session.query(ZHUser).filter(ZHUser.slug == md5).first()
-        return res if res else False
-
     def create_user(self, item):
-        user = ZHUser(zuid=item['zuid'], name=item['name'], link=item['link'], hash=item['hash'], slug=item['slug'],
-                      description=item['description'], headline=item['headline'], avatar=item['avatar'],
-                      create_time=self.now,
-                      modify_time=self.now)
-        try:
-            self.session.add(user)
-            self.session.commit()
-        except Exception as e:
-            logging.exception(e)
-            self.session.rollback()
-            self.session.close()
-            self.session = DBSession()
-        return user
+        return ZHUser.as_unique(self.session, zuid=item['zuid'], name=item['name'], link=item['link'],
+                                hash=item['hash'], slug=item['slug'],
+                                description=item['description'], headline=item['headline'], avatar=item['avatar'],
+                                create_time=self.now,
+                                modify_time=self.now)
 
     def process_item(self, item, spider):
-        self.now = datetime.datetime.now()
-        if self.check_user_exist(item['slug']):
+        user, new = self.create_user(item)
+        if not new:
             raise DropItem('User Item already exist {0}'.format(item))
-        self.create_user(item)
+        self.periodic_commit()
         return item
