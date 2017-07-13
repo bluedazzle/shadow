@@ -173,7 +173,7 @@ class ZHRandomColumn(UniqueMixin, Base):
         return query.filter(ZHRandomColumn.slug == kwargs['slug'])
 
 
-engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
+engine = create_engine('postgresql+psycopg2://postgres:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)
