@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-def _unique(session, cls, hashfunc, queryfunc, constructor, arg, kw):
+def _unique(session, cls, hashfunc, queryfunc, constructor, arg, kw, flush=False):
     new = False
     cache = getattr(session, '_unique_cache', None)
     if cache is None:
@@ -28,6 +28,8 @@ def _unique(session, cls, hashfunc, queryfunc, constructor, arg, kw):
                 obj = constructor(*arg, **kw)
                 session.merge(obj)
         cache[key] = obj
+        if flush:
+            session.flush()
         return obj, new
 
 
@@ -41,14 +43,16 @@ class UniqueMixin(object):
         raise NotImplementedError()
 
     @classmethod
-    def as_unique(cls, session, *arg, **kw):
+    def as_unique(cls, session, flush=False, *arg, **kw):
         return _unique(
             session,
             cls,
             cls.unique_hash,
             cls.unique_filter,
             cls,
-            arg, kw
+            arg,
+            kw,
+            flush
         )
 
 
@@ -77,6 +81,7 @@ class ZHArticle(UniqueMixin, Base):
     cover = Column(String)
     link = Column(String)
     token = Column(String)
+    keywords = Column(String)
     author_id = Column(Integer)
     belong_id = Column(Integer)
 
@@ -173,7 +178,7 @@ class ZHRandomColumn(UniqueMixin, Base):
         return query.filter(ZHRandomColumn.slug == kwargs['slug'])
 
 
-engine = create_engine('postgresql+psycopg2://postgres:123456qq@localhost:5432/lighthouse',
+engine = create_engine('postgresql+psycopg2://rapospectre:123456qq@localhost:5432/lighthouse',
                        encoding='utf-8'.encode())
 
 DBSession = sessionmaker(bind=engine)
