@@ -148,7 +148,7 @@ class ZhuanLanSpider(scrapy.Spider):
     custom_settings = {
         'ITEM_PIPELINES': {
             # 'Shadow.pipelines.CheckAvailablePipeline': 200,
-            'Shadow.pipelines.ArticleDataStorePipeline': 300,
+            'Shadow.pipelines.IncrementArticleDataStorePipeline': 300,
             # 'Shadow.pipelines.WechatSenderPipeline': 400,
         },
         'DOWNLOADER_MIDDLEWARES': {
@@ -161,14 +161,15 @@ class ZhuanLanSpider(scrapy.Spider):
     }
 
     def __init__(self, *args, **kwargs):
-        session = DBSession()
-        self.obj = session.query(ZHRandomColumn).first()
-        if self.obj:
-            self.start_urls = [self.obj.link]
-            session.close()
-        else:
-            session.close()
-            raise CloseSpider("No random column item to crawling")
+        # session = DBSession()
+        # self.obj = session.query(ZHRandomColumn).first()
+        # if self.obj:
+        #     self.start_urls = [self.obj.link]
+        #     session.close()
+        # else:
+        #     session.close()
+        #     raise CloseSpider("No random column item to crawling")
+        self.start_urls = ['https://zhuanlan.zhihu.com/chuapp']
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
     # def __init__(self, *args, **kwargs):

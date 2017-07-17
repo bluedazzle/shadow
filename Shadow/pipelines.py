@@ -13,7 +13,7 @@ import logging
 import pytz
 import requests
 import random
-from scrapy.exceptions import DropItem
+from scrapy.exceptions import DropItem, CloseSpider
 from wechat_sender import Sender
 from bs4 import BeautifulSoup
 
@@ -245,7 +245,28 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
 
 
 class IncrementArticleDataStorePipeline(ArticleDataStorePipeline):
-    pass
+    column = None
+    author = None
+
+    def init_author(self, author):
+        if not self.author:
+            self.author = self.check_user_exist(author['slug'])
+            if not self.author:
+                self.author = self.create_user(author)
+
+    def process_item(self, item, spider):
+        self.init_author(item.author)
+        if self.author.slug != item.author['slug']:
+            self.author = self.check_user_exist(item.author['slug'])
+        if not self.author:
+            self.author = self.create_user(item.author)
+        if not self.column:
+            self.column = self.check_column_exist(item.column['hash'])
+        article, new = self.create_article(item.article, self.author.id, self.column.id)
+        self.periodic_commit()
+        if not new:
+            raise CloseSpider('Article item {0} already exist, spider will closed'.format(item.article['title']))
+        return item
 
 
 class RandomColumnPipeline(DataStorePipelineBase):
