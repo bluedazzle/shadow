@@ -197,6 +197,7 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
         return item
 
     def create_article(self, item, author_id, column_id):
+        item = self.fix_image(item)
         article, new = ZHArticle.as_unique(self.session, title=item['title'], content=item['content'],
                                            cover=item['cover'], md5=item['md5'],
                                            link=item['link'], token=item['token'],
@@ -241,6 +242,10 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
             except Exception as e:
                 logger.exception(e)
                 self.session.rollback()
+
+
+class IncrementArticleDataStorePipeline(ArticleDataStorePipeline):
+    pass
 
 
 class RandomColumnPipeline(DataStorePipelineBase):
