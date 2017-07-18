@@ -116,7 +116,6 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
 
     def close_spider(self, spider):
         try:
-            self.session.delete(spider.obj)
             self.session.commit()
             self.session._unique_cache = None
         except Exception as e:
@@ -124,6 +123,7 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
             logger.exception(e)
         finally:
             self.session.close()
+            self.tmp_session.close()
 
     def get_id(self, model, id_type=1):
         if id_type == 1:

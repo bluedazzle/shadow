@@ -148,7 +148,7 @@ class ZhuanLanSpider(scrapy.Spider):
     custom_settings = {
         'ITEM_PIPELINES': {
             # 'Shadow.pipelines.CheckAvailablePipeline': 200,
-            'Shadow.pipelines.IncrementArticleDataStorePipeline': 300,
+            'Shadow.pipelines.ArticleDataStorePipeline': 300,
             # 'Shadow.pipelines.WechatSenderPipeline': 400,
         },
         'DOWNLOADER_MIDDLEWARES': {
@@ -160,38 +160,39 @@ class ZhuanLanSpider(scrapy.Spider):
         'CONCURRENT_REQUESTS': 1
     }
 
-    def __init__(self, *args, **kwargs):
-        # session = DBSession()
-        # self.obj = session.query(ZHRandomColumn).first()
-        # if self.obj:
-        #     self.start_urls = [self.obj.link]
-        #     session.close()
-        # else:
-        #     session.close()
-        #     raise CloseSpider("No random column item to crawling")
-        self.start_urls = ['https://zhuanlan.zhihu.com/chuapp']
-        super(ZhuanLanSpider, self).__init__(*args, **kwargs)
-
     # def __init__(self, *args, **kwargs):
-    #     self.session = DBSession()
-    #     self.obj = None
+    #     session = DBSession()
+    #     self.obj = session.query(ZHRandomColumn).first()
+    #     if self.obj:
+    #         self.start_urls = [self.obj.link]
+    #         session.close()
+    #     else:
+    #         session.close()
+    #         raise CloseSpider("No random column item to crawling")
+    #     self.start_urls = ['https://zhuanlan.zhihu.com/chuapp']
     #     super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
-    # def start_requests(self):
-    #    while 1:
-    #        self.obj = self.session.query(ZHRandomColumn).first()
-    #        if self.obj:
-    #            self.start_urls = [self.obj.link]
-    #            yield self.make_requests_from_url(self.obj.link)
-    #        else:
-    #            self.session.close()
-    #            raise CloseSpider("No item to crawling")
+    def __init__(self, *args, **kwargs):
+        self.session = DBSession()
+        self.obj = None
+        super(ZhuanLanSpider, self).__init__(*args, **kwargs)
+
+    def start_requests(self):
+       while 1:
+           self.obj = self.session.query(ZHRandomColumn).first()
+           if self.obj:
+               self.start_urls = [self.obj.link]
+               yield self.make_requests_from_url(self.obj.link)
+           else:
+               self.session.close()
+               raise CloseSpider("No item to crawling")
 
     def modify_obj(self):
         if self.obj:
             try:
                 self.session.delete(self.obj)
                 self.session.commit()
+                self.offset = 0
             except Exception as e:
                 logging.exception(e)
                 self.session.rollback()
@@ -219,7 +220,7 @@ class ZhuanLanSpider(scrapy.Spider):
         yield Request(url, headers=headers, callback=self.parse_api_result)
         url = self.column_api_url.format(slug=self.get_zhuanlan_name())
         yield Request(url, headers=headers, callback=self.parse_column_info)
-        # self.modify_obj()
+        self.modify_obj()
 
     def parse_column_info(self, response):
         data = json.loads(response.body)
