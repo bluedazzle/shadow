@@ -3,6 +3,8 @@
 from __future__ import unicode_literals
 
 import re
+import os
+import sys
 import json
 import random
 
@@ -17,6 +19,9 @@ from wechat_sender import LoggingSenderHandler
 from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem, ColumnItem
 from Shadow.models import DBSession, ZHRandomColumn
 from Shadow.utils import md5
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+sys.path.append(BASE_DIR)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('scrapy')

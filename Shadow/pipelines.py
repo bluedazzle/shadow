@@ -9,6 +9,8 @@ from __future__ import unicode_literals
 import datetime
 
 import logging
+import os
+import sys
 
 import pytz
 import requests
@@ -18,7 +20,11 @@ from wechat_sender import Sender
 from bs4 import BeautifulSoup
 
 from Shadow.const import ProtocolChoice
-from models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
+from Shadow.models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(BASE_DIR)
+from lg_data.queue.tasks import generate_keywords_task
 
 logger = logging.getLogger('scrapy')
 
@@ -231,13 +237,15 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
 
     def periodic_commit(self):
         self.count += 1
-        if self.count == 100:
+        if self.count == 10:
             try:
                 logger.info('Periodic commit to database')
                 self.count = 0
                 self.user_cache_count = 0
                 self.column_cache_count = 0
                 self.session.commit()
+                for itm in self.session._unique_cache.values():
+                    generate_keywords_task.apply_async((itm.md5,), countdown=5)
                 self.session._unique_cache = None
             except Exception as e:
                 logger.exception(e)
