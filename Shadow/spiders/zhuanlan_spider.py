@@ -9,6 +9,8 @@ import json
 import random
 
 import datetime
+
+import redis
 import scrapy
 import logging
 
@@ -183,14 +185,14 @@ class ZhuanLanSpider(scrapy.Spider):
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 
     def start_requests(self):
-       while 1:
-           self.obj = self.session.query(ZHRandomColumn).first()
-           if self.obj:
-               self.start_urls = [self.obj.link]
-               yield self.make_requests_from_url(self.obj.link)
-           else:
-               self.session.close()
-               raise CloseSpider("No item to crawling")
+        while 1:
+            self.obj = self.session.query(ZHRandomColumn).first()
+            if self.obj:
+                self.start_urls = [self.obj.link]
+                yield self.make_requests_from_url(self.obj.link)
+            else:
+                self.session.close()
+                raise CloseSpider("No item to crawling")
 
     def modify_obj(self):
         if self.obj:
@@ -289,6 +291,78 @@ class ZhuanLanSpider(scrapy.Spider):
             item.creator = self.creator
             yield item
         if offset < self.total:
+            url = self.generate_api_url(20)
+            yield Request(url, callback=self.parse_api_result, headers=response.headers)
+
+
+class TopZhuanLanSpider(ZhuanLanSpider):
+    name = 'topzl'
+    exist = False
+
+    custom_settings = {
+        'ITEM_PIPELINES': {
+            'Shadow.pipelines.IncrementArticleDataStorePipeline': 300,
+        },
+        'DOWNLOADER_MIDDLEWARES': {
+            'Shadow.middlewares.UserAgentMiddleware': 1,
+        },
+        'COOKIES_ENABLED': False,
+        'RANDOMIZE_DOWNLOAD_DELAY': True,
+        'CONCURRENT_REQUESTS': 1
+    }
+
+    def __init__(self, *args, **kwargs):
+        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+        self.slug = None
+        super(ZhuanLanSpider, self).__init__(*args, **kwargs)
+
+    def start_requests(self):
+        while 1:
+            self.slug = self.redis.spop('top_column_slug')
+            if self.slug:
+                link = 'https://zhuanlan.zhihu.com/{0}'.format(self.slug)
+                self.start_urls = [link]
+                self.exist = False
+                yield self.make_requests_from_url(link)
+            else:
+                raise CloseSpider("No top column to crawling")
+
+    def modify_obj(self):
+        self.offset = 0
+
+    def parse_api_result(self, response):
+        offset = int(response.url.split('&')[-1].split('=')[-1])
+        data = json.loads(response.body)
+        for article in data:
+            item = ZHCombinationItem()
+            author = article.get('author', None)
+            link = 'https://zhuanlan.zhihu.com/p/{0}'.format(article.get('slug'))
+            item.article['title'] = article.get('title')
+            item.article['content'] = article.get('content')
+            item.article['summary'] = article.get('summary')
+            item.article['cover'] = article.get('titleImage')
+            item.article['token'] = article.get('slug')
+            item.article['link'] = link
+            item.article['md5'] = md5('{0}'.format(item.article['token']))
+            item.article['create_time'] = article.get('publishedTime')
+            item.article['modify_time'] = article.get('publishedTime')
+            if author.get('hash') == self.creator['hash']:
+                item.author = self.creator.copy()
+            else:
+                item.author['zuid'] = author.get('uid')
+                item.author['name'] = author.get('name')
+                item.author['link'] = author.get('profileUrl')
+                item.author['hash'] = author.get('hash')
+                item.author['slug'] = author.get('slug')
+                item.author['description'] = author.get('description')
+                item.author['headline'] = author.get('headline')
+                item.author['avatar'] = author.get('avatar').get('template',
+                                                                 'https://pic1.zhimg.com/{id}_{size}.jpg').format(
+                    id=author.get('avatar').get('id'), size='l')
+            item.column = self.column
+            item.creator = self.creator
+            yield item
+        if offset < self.total and not self.exist:
             url = self.generate_api_url(20)
             yield Request(url, callback=self.parse_api_result, headers=response.headers)
 
