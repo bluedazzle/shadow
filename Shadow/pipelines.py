@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 from const import ProtocolChoice
 from lg_data.db.models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
 from lg_data.cache import redis_1
-from lg_data.queue.tasks import generate_keywords_task
+from lg_data.queue.tasks import generate_keywords_task, notify_baidu_new_url
 
 logger = logging.getLogger('scrapy')
 
@@ -243,8 +243,11 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
                 self.user_cache_count = 0
                 self.column_cache_count = 0
                 self.session.commit()
+                links = ''
                 for itm in self.session._unique_cache.values():
                     generate_keywords_task.apply_async((itm.md5,), countdown=5)
+                    links = '{0}\nhttps://www.wznav.com/article/{1}'.format(links, itm.token)
+                notify_baidu_new_url.apply_async((links,))
                 self.session._unique_cache = None
             except Exception as e:
                 logger.exception(e)
