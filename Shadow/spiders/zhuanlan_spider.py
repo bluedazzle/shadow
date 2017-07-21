@@ -7,9 +7,7 @@ import os
 import sys
 import json
 import random
-
 import datetime
-
 import redis
 import scrapy
 import logging
@@ -17,9 +15,8 @@ import logging
 from scrapy import Request
 from scrapy.exceptions import CloseSpider
 from wechat_sender import LoggingSenderHandler
-
 from Shadow.items import ZHArticleItem, ZHCombinationItem, TagItem, ZHColumnItem, ZHUserItem, ColumnItem
-from Shadow.models import DBSession, ZHRandomColumn
+from lg_data.db.models import DBSession, ZHRandomColumn
 from Shadow.utils import md5
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -312,7 +309,7 @@ class TopZhuanLanSpider(ZhuanLanSpider):
     }
 
     def __init__(self, *args, **kwargs):
-        self.redis = redis.StrictRedis(host='localhost', port=6379, db=0)
+        self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
         self.slug = None
         super(ZhuanLanSpider, self).__init__(*args, **kwargs)
 

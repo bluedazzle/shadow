@@ -8,8 +8,7 @@ import random
 
 from scrapy import signals
 
-from Shadow.const import ProtocolChoice
-from Shadow.models import DBSession, Proxy
+from lg_data.db.models import DBSession, Proxy
 
 
 class UserAgentMiddleware(object):

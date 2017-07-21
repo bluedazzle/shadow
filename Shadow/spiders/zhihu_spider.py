@@ -4,19 +4,15 @@ from __future__ import unicode_literals
 
 import re
 import json
-import random
-
-import datetime
 import scrapy
 import logging
 
 from scrapy import Request
-from scrapy.exceptions import CloseSpider, DontCloseSpider
-from wechat_sender import LoggingSenderHandler
+from scrapy.exceptions import CloseSpider
 from scrapy import signals
 from Shadow.items import ZHUserItem, ColumnItem
-from Shadow.models import DBSession, ZHUser
-from Shadow.utils import md5
+from lg_data.db.models import DBSession, ZHUser
+from lg_data.utils import md5
 
 
 class DataBaseRunMixin(object):
@@ -102,7 +98,7 @@ class ZHPeopleFollowsSpider(scrapy.Spider):
         },
         'COOKIES_ENABLED': False,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
-        'DOWNLOAD_DELAY': 5,
+        'DOWNLOAD_DELAY': 3,
         'CONCURRENT_REQUESTS': 1
     }
 

@@ -7,33 +7,31 @@
 from __future__ import unicode_literals
 
 import datetime
-
 import logging
-import os
-import sys
-
 import pytz
 import requests
 import random
-from scrapy.exceptions import DropItem, CloseSpider
+
+from scrapy.exceptions import DropItem
 from wechat_sender import Sender
 from bs4 import BeautifulSoup
 
-from Shadow.const import ProtocolChoice
-from Shadow.models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.append(BASE_DIR)
+from const import ProtocolChoice
+from lg_data.db.models import DBSession, Proxy, ZHArticle, ZHColumn, ZHUser, ZHArticleTagRef, Tag, ZHRandomColumn
+from lg_data.cache import redis_1
 from lg_data.queue.tasks import generate_keywords_task
 
 logger = logging.getLogger('scrapy')
 
 
 class DataStorePipelineBase(object):
+    commit_number = 100
+
     def __init__(self):
         self.now = datetime.datetime.now(tz=pytz.timezone('Asia/Shanghai'))
         self.session = None
         self.count = 0
+        self.redis = redis_1
         super(DataStorePipelineBase, self).__init__()
 
     def get_now(self):
@@ -55,7 +53,7 @@ class DataStorePipelineBase(object):
 
     def periodic_commit(self):
         self.count += 1
-        if self.count == 100:
+        if self.count == self.commit_number:
             try:
                 logger.info('Periodic commit to database')
                 self.count = 0
@@ -175,6 +173,7 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
                           create_time=self.now, modify_time=self.now)
         self.tmp_session.add(column)
         self.tmp_session.commit()
+        self.redis.sadd('total_column', column.slug)
         return column
 
     def create_user(self, item):
@@ -281,9 +280,10 @@ class IncrementArticleDataStorePipeline(ArticleDataStorePipeline):
 
 
 class RandomColumnPipeline(DataStorePipelineBase):
+    commit_number = 20
+
     def check_exist(self, item):
-        obj = self.session.query(ZHColumn.id).filter(ZHColumn.slug == item['slug'])
-        return self.session.query(obj.exists()).scalar()
+        return self.redis.sismember('total_column', item['slug'])
 
     def create_random_column(self, item):
         self.get_now()
@@ -292,9 +292,10 @@ class RandomColumnPipeline(DataStorePipelineBase):
 
     def process_item(self, item, spider):
         if item['hash'] != '':
-            column, new = self.create_random_column(item)
-            if not new:
-                raise DropItem('Item already exist {0}'.format(item))
+            if not self.check_exist(item):
+                column, new = self.create_random_column(item)
+                if not new:
+                    raise DropItem('Item already exist {0}'.format(item))
         self.periodic_commit()
         return item
 
