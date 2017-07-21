@@ -188,8 +188,9 @@ class ZhuanLanSpider(scrapy.Spider):
                 self.start_urls = [self.obj.link]
                 yield self.make_requests_from_url(self.obj.link)
             else:
-                self.session.close()
-                raise CloseSpider("No item to crawling")
+                break
+        self.session.close()
+        raise CloseSpider("No item to crawling")
 
     def modify_obj(self):
         if self.obj:
@@ -322,7 +323,8 @@ class TopZhuanLanSpider(ZhuanLanSpider):
                 self.exist = False
                 yield self.make_requests_from_url(link)
             else:
-                raise CloseSpider("No top column to crawling")
+                break
+        raise CloseSpider("No top column to crawling")
 
     def modify_obj(self):
         self.offset = 0
