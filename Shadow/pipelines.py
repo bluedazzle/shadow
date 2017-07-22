@@ -248,7 +248,8 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
                     if not itm.id:
                         generate_keywords_task.apply_async((itm.md5,), countdown=5)
                         links = '{0}https://www.wznav.com/article/{1}\n'.format(links, itm.token)
-                notify_baidu_new_url.apply_async((links,))
+                if links:
+                    notify_baidu_new_url.apply_async((links,))
                 self.session._unique_cache = None
             except Exception as e:
                 logger.exception(e)
