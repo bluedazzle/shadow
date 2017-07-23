@@ -196,8 +196,6 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
         if not item['cover']:
             if finds:
                 item['cover'] = finds[0]['src']
-            else:
-                item['cover'] = '/s/image/default.jpg'
         item['content'] = soup.prettify()
         return item
 
