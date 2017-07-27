@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 import datetime
 import logging
 import pytz
+import re
 import requests
 import random
 
@@ -188,7 +189,7 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
         return user
 
     def fix_image(self, item):
-        soup = BeautifulSoup(item['content'])
+        soup = BeautifulSoup(item['content'], 'lxml')
         finds = soup.find_all('img')
         for itm in finds:
             host_random = random.randint(1, 4)
@@ -196,6 +197,12 @@ class ArticleDataStorePipeline(DataStorePipelineBase):
         if not item['cover']:
             if finds:
                 item['cover'] = finds[0]['src']
+        finds = soup.find_all('a')
+        for itm in finds:
+            href = itm.get('href', '')
+            res = re.findall(r'/p/([0-9]+)', href)
+            if res:
+                itm['href'] = 'https://www.wznav.com/article/{0}/'.format(res[0])
         item['content'] = soup.prettify()
         return item
 
