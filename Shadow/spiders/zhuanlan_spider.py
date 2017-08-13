@@ -305,8 +305,8 @@ class TopZhuanLanSpider(ZhuanLanSpider):
             'Shadow.middlewares.UserAgentMiddleware': 1,
         },
         'COOKIES_ENABLED': False,
+        'DOWNLOAD_DELAY': 0.1,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
-        'CONCURRENT_REQUESTS': 1
     }
 
     def __init__(self, *args, **kwargs):

@@ -271,6 +271,15 @@ class IncrementArticleDataStorePipeline(ArticleDataStorePipeline):
             if not self.author:
                 self.author = self.create_user(author)
 
+    def update_column_time(self, update_time):
+        uptime = datetime.datetime.strptime(update_time, '%Y-%m-%dT%H:%M:%S+08:00').replace(
+            tzinfo=pytz.timezone('Asia/Shanghai'))
+        if not self.column.last_update_time:
+            self.column.last_update_time = uptime
+            return True
+        if uptime > self.column.last_update_time:
+            self.column.last_update_time = uptime
+
     def process_item(self, item, spider):
         self.init_author(item.author)
         if self.author.slug != item.author['slug']:
@@ -282,6 +291,7 @@ class IncrementArticleDataStorePipeline(ArticleDataStorePipeline):
         if spider.slug != self.column.slug:
             self.column = self.check_column_exist(item.column['hash'])
         article, new = self.create_article(item.article, self.author.id, self.column.id)
+        self.update_column_time(item.article['create_time'])
         self.periodic_commit()
         if not new:
             spider.exist = True
