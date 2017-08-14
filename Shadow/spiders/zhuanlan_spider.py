@@ -214,6 +214,8 @@ class ZhuanLanSpider(scrapy.Spider):
         return self.api_urls.format(self.url_name, self.offset)
 
     def parse(self, response):
+        if response.status == 404:
+            self.modify_obj()
         matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
         data = json.loads(matchs[0])
         tokens = data.get('tokens')
