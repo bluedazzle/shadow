@@ -6,6 +6,7 @@ import re
 import json
 import scrapy
 import logging
+import HTMLParser
 
 from scrapy import Request
 from scrapy.exceptions import CloseSpider
@@ -131,9 +132,15 @@ class ZHPeopleFollowsSpider(scrapy.Spider):
                 break
         raise CloseSpider('No available user item to crawl follows')
 
+    def get_client_config(self, response):
+        matchs = re.findall(r'<textarea id="clientConfig" hidden="">(.*?)</textarea>', response.body)
+        html_parser = HTMLParser.HTMLParser()
+        unescape_data = html_parser.unescape(matchs[0])
+        data = json.loads(unescape_data)
+        return data
+
     def parse(self, response):
-        matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
-        data = json.loads(matchs[0])
+        data = self.get_client_config(response)
         tokens = data.get('tokens')
         headers = response.headers
         headers['referer'] = response.url
@@ -222,9 +229,15 @@ class ZHPeopleColumnSpider(scrapy.Spider):
                 break
         raise CloseSpider('No available user item to crawl columns')
 
+    def get_client_config(self, response):
+        matchs = re.findall(r'<textarea id="clientConfig" hidden="">(.*?)</textarea>', response.body)
+        html_parser = HTMLParser.HTMLParser()
+        unescape_data = html_parser.unescape(matchs[0])
+        data = json.loads(unescape_data)
+        return data
+
     def parse(self, response):
-        matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
-        data = json.loads(matchs[0])
+        data = self.get_client_config(response)
         tokens = data.get('tokens')
         headers = response.headers
         headers['referer'] = response.url

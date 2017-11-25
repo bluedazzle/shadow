@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+import HTMLParser
 import re
 import os
 import sys
@@ -56,9 +57,15 @@ class ZhuanLanArticleSpider(scrapy.Spider):
         'COOKIES_ENABLED': False,
     }
 
+    def get_client_config(self):
+        matchs = re.findall(r'<textarea id="clientConfig" hidden="">(.*?)</textarea>', self.response.body)
+        html_parser = HTMLParser.HTMLParser()
+        unescape_data = html_parser.unescape(matchs[0])
+        data = json.loads(unescape_data)
+        return data
+
     def generate_header(self):
-        matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', self.response.body)
-        data = json.loads(matchs[0])
+        data = self.get_client_config()
         tokens = data.get('tokens')
         headers = self.response.headers
         headers['referer'] = self.response.url
@@ -97,8 +104,12 @@ class ZhuanLanArticleSpider(scrapy.Spider):
 
     def parse(self, response):
         self.response = response
-        matchs = re.findall(r'<textarea id="preloadedState" hidden>(.*?)</textarea>', response.body)
-        data = json.loads(matchs[0])
+        matchs = re.findall(r'<textarea id="preloadedState" hidden="">(.*?)</textarea>', response.body)
+        html_parser = HTMLParser.HTMLParser()
+        unescape_data = html_parser.unescape(matchs[0].decode('utf-8'))
+        a = re.findall(r'"updated":(.*?),"canComment"', unescape_data)
+        unescape_data = unescape_data.replace(a[0], '" "')
+        data = json.loads(unescape_data)
         item = ZHCombinationItem()
         article_data = data.get('database').get('Post').values()[0]
         author = article_data.get('author', None)
@@ -213,11 +224,17 @@ class ZhuanLanSpider(scrapy.Spider):
         self.offset += offset
         return self.api_urls.format(self.url_name, self.offset)
 
+    def get_client_config(self, response):
+        matchs = re.findall(r'<textarea id="clientConfig" hidden="">(.*?)</textarea>', response.body)
+        html_parser = HTMLParser.HTMLParser()
+        unescape_data = html_parser.unescape(matchs[0])
+        data = json.loads(unescape_data)
+        return data
+
     def parse(self, response):
         if response.status == 404:
             self.modify_obj()
-        matchs = re.findall(r'<textarea id="clientConfig" hidden>(.*?)</textarea>', response.body)
-        data = json.loads(matchs[0])
+        data = self.get_client_config(response)
         tokens = data.get('tokens')
         headers = response.headers
         headers['referer'] = response.url
